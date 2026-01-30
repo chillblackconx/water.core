@@ -4,207 +4,131 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Watercore | Réservation</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%25%22 y1=%220%25%22 x2=%22100%22 y2=%22100%22><stop offset=%220%25%22 style=%22stop-color:%23000000%22 /><stop offset=%22100%22 style=%22stop-color:%233533cd%22 /></linearGradient></defs><text y=%2280%22 x=%2250%22 font-family=%22Arial Black, sans-serif%22 font-weight=%22900%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22url(%23g)%22 style=%22letter-spacing:-5px%22>W</text></svg>">
+
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
     <style>
-        :root { 
-            --watercore-blue: #0ea5e9; 
-            --watercore-dark: #0c4a6e; 
-            --bg: #f8fafc; 
-        }
-        
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            background: radial-gradient(circle at top, #e0f2fe 0%, #f8fafc 100%); 
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-        }
-
-        .card { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 24px; 
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); 
-            width: 100%; 
-            max-width: 400px; 
-            border: 1px solid rgba(14, 165, 233, 0.1);
-        }
-
-        .logo {
-            text-align: center;
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--watercore-dark);
-            margin-bottom: 2rem;
-            letter-spacing: -1px;
-        }
-
-        .logo span { color: var(--watercore-blue); }
-
-        .screen { display: none; }
-        .active { display: block; animation: fadeIn 0.4s ease; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 12px; 
-            margin-top: 15px; 
-            max-height: 320px; 
-            overflow-y: auto; 
-            padding: 5px;
-        }
-
-        .slot { 
-            padding: 14px; 
-            background: #f1f5f9; 
-            border: 2px solid transparent; 
-            border-radius: 12px; 
-            text-align: center; 
-            cursor: pointer; 
-            font-weight: 600; 
-            color: #475569;
-            transition: all 0.2s; 
-        }
-
-        .slot:hover { border-color: var(--watercore-blue); background: #f0f9ff; }
-        .slot.selected { background: var(--watercore-blue); color: white; border-color: var(--watercore-dark); }
-
-        input, button { 
-            width: 100%; 
-            padding: 14px; 
-            margin-top: 12px; 
-            border-radius: 12px; 
-            border: 1px solid #e2e8f0; 
-            box-sizing: border-box; 
-            font-size: 1rem;
-        }
-
-        input:focus { outline: none; border-color: var(--watercore-blue); ring: 2px solid #bae6fd; }
-
-        button { 
-            background: var(--watercore-dark); 
-            color: white; 
-            border: none; 
-            font-weight: 700; 
-            cursor: pointer; 
-            transition: transform 0.1s;
-        }
-
-        button:active { transform: scale(0.98); }
-        button:disabled { background: #cbd5e1; cursor: not-allowed; }
-
-        .success-box { 
-            display: none; 
-            background: #f0fdf4; 
-            color: #166534; 
-            padding: 15px; 
-            border-radius: 12px; 
-            text-align: center; 
-            margin-top: 20px;
-            font-weight: 600;
-        }
+        :root { --grad: linear-gradient(135deg, #000000 0%, #3533cd 100%); --blue: #3533cd; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .card { background: white; width: 90%; max-width: 420px; padding: 30px; border-radius: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); text-align: center; border: 1px solid #e2e8f0; }
+        .logo { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; letter-spacing: -2px; }
+        .screen { display: none; flex-direction: column; gap: 15px; }
+        .active { display: flex; }
+        .date-nav { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px; border-radius: 12px; margin-bottom: 15px; }
+        .nav-btn { background: white; border: 1px solid #e2e8f0; border-radius: 8px; width: 40px; height: 40px; cursor: pointer; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 250px; overflow-y: auto; padding: 5px; }
+        .slot { padding: 15px; background: #f8fafc; border-radius: 12px; cursor: pointer; font-weight: 700; border: 2px solid transparent; transition: 0.2s; }
+        .slot:hover { border-color: #cbd5e1; }
+        .slot.selected { background: var(--blue); color: white; border-color: #000; }
+        input { width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #f1f5f9; box-sizing: border-box; font-size: 1.1rem; text-align: center; font-weight: 600; }
+        .main-btn { width: 100%; padding: 18px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="logo">WATER<span>CORE</span></div>
+    <div class="logo">WATERCORE</div>
 
-    <div id="login-screen" class="screen active">
-        <p style="text-align:center; color:#64748b; margin-top:-15px; margin-bottom:20px;">Portail de réservation</p>
-        <input type="text" id="user-name" placeholder="Votre nom complet">
-        <button onclick="enterApp()">Accéder au planning</button>
+    <div id="step1" class="screen active">
+        <label style="font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Identité Client</label>
+        <input type="text" id="username" placeholder="Entrez votre nom">
+        <button class="main-btn" onclick="goToStep2()">Suivant</button>
     </div>
 
-    <div id="booking-screen" class="screen">
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <h4 style="margin:0; color:var(--watercore-dark)">Planning du jour</h4>
-            <span style="font-size:0.7rem; background:#e0f2fe; padding:4px 8px; border-radius:20px; color:var(--watercore-dark)">9h - 16h</span>
+    <div id="step2" class="screen">
+        <div class="date-nav">
+            <button class="nav-btn" onclick="changeDate(-1)">&#10094;</button>
+            <span id="current-date-display" style="font-weight:800; color:var(--blue);"></span>
+            <button class="nav-btn" onclick="changeDate(1)">&#10095;</button>
         </div>
-        
-        <div id="grid" class="grid"></div>
-        
-        <div id="confirm-area" style="display:none; margin-top:20px; padding-top:15px; border-top: 1px solid #f1f5f9;">
-            <p id="summary" style="font-size:0.9rem; color:#475569; margin-bottom:15px;"></p>
-            <button id="send-btn" onclick="confirmBooking()">Confirmer la session</button>
+        <div id="time-grid" class="grid"></div>
+        <div id="confirm-area" style="display:none; margin-top:15px; border-top: 1px solid #f1f5f9; padding-top:15px;">
+            <p id="summary" style="font-size:0.9rem; color:#64748b; margin-bottom:10px;"></p>
+            <button class="main-btn" id="confirm-btn" onclick="sendToEmail()">Confirmer la session</button>
         </div>
-        
-        <div id="msg" class="success-box">Plouf ! Session réservée avec succès.</div>
     </div>
 </div>
 
 <script>
-    // CONFIGURATION WATERCORE
-    const P_KEY = "BAfMFTCd2YLwvXa7c";
-    const S_ID = "service_vlw8hol";
-    const T_ID = "template_j897y78"; // <--- Assurez-vous que cet ID est correct
+    // TES PARAMÈTRES RÉELS
+    const SERVICE_ID = "service_vlw8hol";
+    const TEMPLATE_ID = "template_t4uzj6m";
+    const PUBLIC_KEY = "BAfMFTCd2YLwvXa7c";
 
-    emailjs.init(P_KEY);
+    emailjs.init(PUBLIC_KEY);
 
     let clientName = "";
-    let selectedSlot = "";
+    let selectedDate = new Date();
+    let selectedTime = "";
 
-    function enterApp() {
-        clientName = document.getElementById('user-name').value;
-        if(clientName.length < 2) return alert("Veuillez entrer votre nom.");
-        
-        document.getElementById('login-screen').classList.remove('active');
-        document.getElementById('booking-screen').classList.add('active');
-        
-        const grid = document.getElementById('grid');
-        grid.innerHTML = ""; // Reset grid
-        
-        // Génération 9h - 16h par tranches de 30 min
-        for(let h=9; h<16; h++) {
-            createSlot(`${h}:00`, `${h}:30`);
-            createSlot(`${h}:30`, `${h+1}:00`);
+    function goToStep2() {
+        clientName = document.getElementById('username').value;
+        if (!clientName) return alert("Veuillez entrer votre nom.");
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        renderPlanning();
+    }
+
+    function changeDate(n) {
+        let temp = new Date(selectedDate);
+        temp.setDate(temp.getDate() + n);
+        let today = new Date(); today.setHours(0,0,0,0);
+        if (temp < today) return; // Empêcher le passé
+        selectedDate = temp;
+        renderPlanning();
+    }
+
+    function renderPlanning() {
+        const opt = { weekday: 'long', day: 'numeric', month: 'short' };
+        document.getElementById('current-date-display').innerText = selectedDate.toLocaleDateString('fr-FR', opt);
+        document.getElementById('confirm-area').style.display = 'none';
+        const grid = document.getElementById('time-grid');
+        grid.innerHTML = "";
+        for (let h = 9; h < 16; h++) {
+            addTimeSlot(grid, h+":00", h+":30");
+            addTimeSlot(grid, h+":30", (h+1)+":00");
         }
     }
 
-    function createSlot(start, end) {
-        const div = document.createElement('div');
-        div.className = 'slot';
-        div.innerText = start + " - " + end;
-        div.onclick = () => {
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-            div.classList.add('selected');
-            selectedSlot = div.innerText;
+    function addTimeSlot(grid, start, end) {
+        let b = document.createElement('div');
+        b.className = 'slot';
+        b.innerText = start + " - " + end;
+        b.onclick = () => {
+            document.querySelectorAll('.slot').forEach(x => x.classList.remove('selected'));
+            b.classList.add('selected');
+            selectedTime = b.innerText;
             document.getElementById('confirm-area').style.display = 'block';
-            document.getElementById('summary').innerHTML = `Session pour <b>${clientName}</b><br>Créneau : <b>${selectedSlot}</b>`;
+            document.getElementById('summary').innerHTML = `<b>${clientName}</b><br>Session le ${selectedDate.toLocaleDateString()} à ${selectedTime}`;
         };
-        document.getElementById('grid').appendChild(div);
+        grid.appendChild(b);
     }
 
-    function confirmBooking() {
-        const btn = document.getElementById('send-btn');
+    function sendToEmail() {
+        const btn = document.getElementById('confirm-btn');
         btn.disabled = true;
-        btn.innerText = "Traitement...";
+        btn.innerHTML = `<span class="spinner"></span> Envoi en cours...`;
 
+        // Données envoyées à ton template EmailJS
         const params = {
             user_name: clientName,
-            time_slot: selectedSlot
+            time_slot: selectedTime + " le " + selectedDate.toLocaleDateString('fr-FR')
         };
 
-        emailjs.send(S_ID, T_ID, params)
-            .then(() => {
-                document.getElementById('confirm-area').style.display = 'none';
-                document.getElementById('msg').style.display = 'block';
-                setTimeout(() => location.reload(), 3000);
-            })
-            .catch(err => {
-                alert("Erreur de connexion. Vérifiez vos paramètres EmailJS.");
+        emailjs.send(SERVICE_ID, TEMPLATE_ID, params)
+            .then(function() {
+                alert("Plouf ! Session Watercore confirmée.");
+                location.reload();
+            }, function(error) {
                 btn.disabled = false;
                 btn.innerText = "Réessayer";
+                alert("Erreur technique : " + JSON.stringify(error));
             });
     }
 </script>
-
 </body>
 </html>
