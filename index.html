@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Watercore | Réservation</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%25%22 y1=%220%25%22 x2=%22100%22 y2=%22100%22><stop offset=%220%25%22 style=%22stop-color:%23000000%22 /><stop offset=%22100%22 style=%22stop-color:%233533cd%22 /></linearGradient></defs><text y=%2280%22 x=%2250%22 font-family=%22Arial Black, sans-serif%22 font-weight=%22900%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22url(%23g)%22 style=%22letter-spacing:-5px%22>W</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%25%22 y1=%220%25%22 x2=%220%25%22 y2=%22100%22><stop offset=%220%25%22 style=%22stop-color:%23000000%22 /><stop offset=%22100%22 style=%22stop-color:%233533cd%22 /></linearGradient></defs><text y=%2280%22 x=%2250%22 font-family=%22Arial Black, sans-serif%22 font-weight=%22900%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22url(%23g)%22 style=%22letter-spacing:-5px%22>W</text></svg>">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     
     <style>
-        :root { --grad: linear-gradient(135deg, #000000 0%, #3533cd 100%); --blue: #3533cd; --bg: #f8fafc; }
+        :root { --grad: linear-gradient(180deg, #000000 0%, #3533cd 100%); --blue: #3533cd; --bg: #f8fafc; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .card { background: white; width: 90%; max-width: 420px; padding: 30px; border-radius: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); text-align: center; border: 1px solid #e2e8f0; }
         .logo { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; letter-spacing: -2px; text-transform: uppercase; }
@@ -21,121 +22,143 @@
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 250px; overflow-y: auto; padding: 5px; }
         .slot { padding: 15px; background: #f8fafc; border-radius: 12px; cursor: pointer; font-weight: 700; border: 2px solid transparent; transition: 0.2s; }
         .slot.selected { background: var(--blue); color: white; border-color: #000; }
-        input { width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #f1f5f9; box-sizing: border-box; font-size: 1.1rem; text-align: center; margin-bottom: 5px; }
+        .slot.booked { background: #e2e8f0 !important; color: #94a3b8 !important; cursor: not-allowed !important; text-decoration: line-through; opacity: 0.6; pointer-events: none; }
+        input { width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #f1f5f9; box-sizing: border-box; font-size: 1.1rem; text-align: center; }
         .main-btn { width: 100%; padding: 18px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+        #success-screen { display: none; flex-direction: column; align-items: center; justify-content: center; }
         .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        label { font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; text-align: left; width: 100%; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="logo">WATERCORE</div>
+    <div id="main-content">
+        <div class="logo">WATERCORE</div>
+        
+        <div id="step1" class="screen active">
+            <input type="text" id="username" placeholder="Prénom Nom">
+            <input type="email" id="useremail" placeholder="votre@email.com">
+            <button class="main-btn" onclick="goToStep2()">Suivant</button>
+        </div>
 
-    <div id="step1" class="screen active">
-        <label>Votre Nom</label>
-        <input type="text" id="username" placeholder="Prénom Nom">
-        <label>Votre Email</label>
-        <input type="email" id="useremail" placeholder="votre@email.com">
-        <button class="main-btn" onclick="goToStep2()">Suivant</button>
+        <div id="step2" class="screen">
+            <div class="date-nav">
+                <button class="nav-btn" onclick="changeDate(-1)">&#10094;</button>
+                <span id="current-date-display" style="font-weight:800; color:var(--blue);"></span>
+                <button class="nav-btn" onclick="changeDate(1)">&#10095;</button>
+            </div>
+            <div id="time-grid" class="grid"></div>
+            <div id="confirm-area" style="display:none; margin-top:15px; border-top: 1px solid #f1f5f9; padding-top:15px;">
+                <p id="summary" style="font-size:0.9rem; color:#64748b; margin-bottom:10px;"></p>
+                <button class="main-btn" id="confirm-btn" onclick="saveBooking()">Confirmer la session</button>
+            </div>
+        </div>
     </div>
 
-    <div id="step2" class="screen">
-        <div class="date-nav">
-            <button class="nav-btn" onclick="changeDate(-1)">&#10094;</button>
-            <span id="current-date-display" style="font-weight:800; color:var(--blue);"></span>
-            <button class="nav-btn" onclick="changeDate(1)">&#10095;</button>
-        </div>
-        <div id="time-grid" class="grid"></div>
-        <div id="confirm-area" style="display:none; margin-top:15px; border-top: 1px solid #f1f5f9; padding-top:15px;">
-            <p id="summary" style="font-size:0.9rem; color:#64748b; margin-bottom:10px;"></p>
-            <button class="main-btn" id="confirm-btn" onclick="sendBooking()">Réserver ma session</button>
-        </div>
+    <div id="success-screen">
+        <div style="font-size: 50px; color: #22c55e; margin-bottom: 15px;">✓</div>
+        <h2 style="color:var(--blue); margin: 0;">Réservé !</h2>
+        <p style="color:#64748b; font-size: 0.9rem; margin-top: 10px;">Le créneau a été bloqué avec succès.</p>
+        <button class="main-btn" onclick="location.reload()" style="background:#f1f5f9; color:#64748b; margin-top:20px;">Retour</button>
     </div>
 </div>
 
 <script>
-    // TES IDS EMAILJS
-    const SERVICE_ID = "service_vlw8hol";
-    const TEMPLATE_ID = "template_t4uzj6m";
-    const PUBLIC_KEY = "BAfMFTCd2YLwvXa7c";
+    // --- CONFIGURATION ---
+    const _supabase = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
+    emailjs.init("BAfMFTCd2YLwvXa7c");
 
-    emailjs.init(PUBLIC_KEY);
-
-    let clientName = "";
-    let clientEmail = "";
+    let clientName = "", clientEmail = "", selectedTime = "";
     let selectedDate = new Date();
-    let selectedTime = "";
 
     function goToStep2() {
         clientName = document.getElementById('username').value;
         clientEmail = document.getElementById('useremail').value;
-        
-        if (!clientName || !clientEmail) return alert("Veuillez remplir votre nom et email.");
-        if (!clientEmail.includes('@')) return alert("L'adresse email est invalide.");
-
+        if (!clientName || !clientEmail) return alert("Veuillez remplir tous les champs.");
         document.getElementById('step1').classList.remove('active');
         document.getElementById('step2').classList.add('active');
         renderPlanning();
     }
 
     function changeDate(n) {
-        let temp = new Date(selectedDate);
-        temp.setDate(temp.getDate() + n);
-        let today = new Date(); today.setHours(0,0,0,0);
-        if (temp < today) return;
-        selectedDate = temp;
+        selectedDate.setDate(selectedDate.getDate() + n);
         renderPlanning();
     }
 
-    function renderPlanning() {
-        const opt = { weekday: 'long', day: 'numeric', month: 'short' };
-        document.getElementById('current-date-display').innerText = selectedDate.toLocaleDateString('fr-FR', opt);
-        document.getElementById('confirm-area').style.display = 'none';
+    // --- CHARGEMENT DES CRENEAUX DEPUIS SUPABASE ---
+    async function renderPlanning() {
+        const dateKey = selectedDate.toISOString().split('T')[0];
+        document.getElementById('current-date-display').innerText = selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+        
         const grid = document.getElementById('time-grid');
+        grid.innerHTML = "Vérification...";
+
+        // Récupérer les réservations existantes pour cette date
+        const { data: bookings, error } = await _supabase
+            .from('reservations')
+            .select('time_slot')
+            .eq('date', dateKey);
+
         grid.innerHTML = "";
+        const taken = bookings ? bookings.map(b => b.time_slot) : [];
+
+        // Générer les créneaux de 9h à 16h
         for (let h = 9; h < 16; h++) {
-            addSlot(grid, h+":00", h+":30");
-            addSlot(grid, h+":30", (h+1)+":00");
+            [h + ":00 - " + h + ":30", h + ":30 - " + (h + 1) + ":00"].forEach(time => {
+                const div = document.createElement('div');
+                div.className = 'slot';
+                if (taken.includes(time)) {
+                    div.classList.add('booked');
+                    div.innerText = time + " (Complet)";
+                } else {
+                    div.innerText = time;
+                    div.onclick = () => {
+                        document.querySelectorAll('.slot').forEach(x => x.classList.remove('selected'));
+                        div.classList.add('selected');
+                        selectedTime = time;
+                        document.getElementById('confirm-area').style.display = 'block';
+                        document.getElementById('summary').innerHTML = `Session à <b>${time}</b>`;
+                    };
+                }
+                grid.appendChild(div);
+            });
         }
     }
 
-    function addSlot(grid, s, e) {
-        let b = document.createElement('div');
-        b.className = 'slot';
-        b.innerText = s + " - " + e;
-        b.onclick = () => {
-            document.querySelectorAll('.slot').forEach(x => x.classList.remove('selected'));
-            b.classList.add('selected');
-            selectedTime = b.innerText;
-            document.getElementById('confirm-area').style.display = 'block';
-            document.getElementById('summary').innerHTML = `<b>${clientName}</b><br>Session le ${selectedDate.toLocaleDateString()} à ${selectedTime}`;
-        };
-        grid.appendChild(b);
-    }
-
-    function sendBooking() {
+    // --- ENREGISTREMENT FINAL ---
+    async function saveBooking() {
         const btn = document.getElementById('confirm-btn');
         btn.disabled = true;
-        btn.innerHTML = `<span class="spinner"></span> Confirmation...`;
+        btn.innerHTML = `<span class="spinner"></span> Enregistrement...`;
 
-        // Ces noms doivent être identiques à ceux entre {{ }} dans ton Template EmailJS
-        const params = {
+        const dateKey = selectedDate.toISOString().split('T')[0];
+
+        // 1. Sauvegarde Supabase
+        const { error } = await _supabase
+            .from('reservations')
+            .insert([{ 
+                client_name: clientName, 
+                date: dateKey, 
+                time_slot: selectedTime 
+            }]);
+
+        if (error) {
+            alert("Erreur base de données. Vérifiez que la table 'reservations' existe.");
+            btn.disabled = false;
+            return;
+        }
+
+        // 2. Envoi EmailJS
+        emailjs.send("service_vlw8hol", "template_t4uzj6m", {
             user_name: clientName,
-            client_email: clientEmail, 
-            time_slot: selectedTime + " le " + selectedDate.toLocaleDateString('fr-FR')
-        };
+            client_email: clientEmail,
+            time_slot: selectedTime + " le " + dateKey
+        });
 
-        emailjs.send(SERVICE_ID, TEMPLATE_ID, params)
-            .then(function() {
-                alert("Super " + clientName + " ! Votre session Watercore est réservée. Vérifiez vos emails.");
-                location.reload();
-            }, function(error) {
-                btn.disabled = false;
-                btn.innerText = "Réessayer";
-                alert("Erreur : " + JSON.stringify(error));
-            });
+        // 3. Affichage Succès
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('success-screen').style.display = 'flex';
     }
 </script>
 </body>
