@@ -4,22 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Watercore | Réservation</title>
+    
     <link rel="icon" href="https://water-core.vercel.app/favicon.ico">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
     <style>
         :root { --grad: linear-gradient(180deg, #000, #3533cd); --blue: #3533cd; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
-        .logo { font-family: 'Arial Black'; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
-        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; }
+        .logo { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; outline: none; }
         .btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; border: 2px solid transparent; }
+        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; border: 2px solid transparent; transition: 0.2s; }
         .slot.booked { background: #fee2e2; color: #b91c1c; cursor: not-allowed; }
-        .slot.past { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; opacity: 0.6; }
+        .slot.past { background: #e2e8f0 !important; color: #94a3b8 !important; cursor: not-allowed !important; opacity: 0.6; }
         .slot.mine { background: #dcfce7; color: #166534; border-color: #22c55e; }
-        .slot.selected { border-color: var(--blue); }
+        .slot.selected { border-color: var(--blue); transform: scale(0.95); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f5f9; padding: 8px; border-radius: 10px; }
     </style>
 </head>
@@ -27,11 +30,12 @@
 
 <div class="card">
     <div class="logo">WATERCORE</div>
+    
     <div id="login-ui">
         <div id="reco-box" style="display:none; background:#f1f5f9; padding:15px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--blue);">
             <p>C'est vous, <b id="reco-name"></b> ?</p>
             <button class="btn" onclick="autoConnect()">Oui, entrer</button>
-            <p onclick="forget()" style="font-size:0.7rem; cursor:pointer; text-decoration:underline; margin-top:10px;">Non, changer</p>
+            <p onclick="forget()" style="font-size:0.7rem; cursor:pointer; text-decoration:underline; margin-top:10px;">Non, changer de compte</p>
         </div>
         <div id="login-form">
             <input type="text" id="u-name" placeholder="Prénom">
@@ -40,11 +44,12 @@
             <button class="btn" onclick="manualConnect()">Se connecter</button>
         </div>
     </div>
+
     <div id="app-ui" style="display:none">
         <div class="date-nav">
-            <button onclick="changeDate(-1)">◀</button>
+            <button onclick="changeDate(-1)" style="border:none; background:none; cursor:pointer;">◀</button>
             <span id="date-label" style="font-weight:bold"></span>
-            <button onclick="changeDate(1)">▶</button>
+            <button onclick="changeDate(1)" style="border:none; background:none; cursor:pointer;">▶</button>
         </div>
         <div id="grid" class="grid"></div>
         <button id="action-btn" class="btn" style="display:none" onclick="process()"></button>
@@ -53,6 +58,12 @@
 
 <script>
     const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
+    
+    // CONFIG EMAILJS (À REMPLIR)
+    const EJS_SERVICE = "YOUR_SERVICE_ID";
+    const EJS_TEMPLATE = "YOUR_TEMPLATE_ID";
+    emailjs.init("YOUR_PUBLIC_KEY");
+
     const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
     let myEmail = "", myPass = "", myName = "", viewDate = new Date(), sel = null;
 
@@ -66,7 +77,12 @@
         }
     };
 
-    function autoConnect() { const u = JSON.parse(localStorage.getItem('wc_session')); myName=u.name; myEmail=u.email; myPass=u.pass; start(); }
+    function autoConnect() { 
+        const u = JSON.parse(localStorage.getItem('wc_session')); 
+        myName=u.name; myEmail=u.email; myPass=u.pass; 
+        start(); 
+    }
+
     function manualConnect() {
         myName = document.getElementById('u-name').value.trim();
         myEmail = document.getElementById('u-email').value.trim().toLowerCase();
@@ -75,6 +91,7 @@
         localStorage.setItem('wc_session', JSON.stringify({name:myName, email:myEmail, pass:myPass}));
         start();
     }
+
     function forget() { localStorage.removeItem('wc_session'); location.reload(); }
     function start() { document.getElementById('login-ui').style.display="none"; document.getElementById('app-ui').style.display="block"; load(); }
     function changeDate(n) { viewDate.setDate(viewDate.getDate() + n); load(); }
@@ -94,7 +111,6 @@
                 const b = data?.find(x => x.time_slot === time);
                 const isMine = b && b.client_email === myEmail && b.password === myPass;
                 
-                // Calcul du passé
                 const slotDate = new Date(viewDate);
                 slotDate.setHours(h, parseInt(m), 0, 0);
                 const isPast = slotDate < now;
@@ -106,6 +122,7 @@
                 if (isAdmin && b) txt += `<br><small style="font-size:0.6rem">👤 ${b.client_name}</small>`;
                 div.innerHTML = txt;
 
+                // On ne peut cliquer que si ce n'est pas passé, ou si on est Admin, ou si c'est notre séance
                 if (!isPast || isAdmin || isMine) {
                     div.onclick = () => {
                         if (b && !isMine && !isAdmin) return;
@@ -113,13 +130,14 @@
                         div.classList.add('selected');
                         const btn = document.getElementById('action-btn');
                         btn.style.display = "block";
+                        
                         if (isMine || (isAdmin && b)) {
                             sel = { id: b.id, type: 'del' };
-                            btn.innerText = "Annuler";
+                            btn.innerText = "Annuler la séance";
                             btn.style.background = "red";
                         } else {
                             sel = { time: time, type: 'add' };
-                            btn.innerText = "Réserver " + time;
+                            btn.innerText = "Confirmer " + time;
                             btn.style.background = "black";
                         }
                     };
@@ -135,8 +153,20 @@
             const { error } = await _sb.from('reservations').insert([{ 
                 client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
             }]);
-            if(error) return alert("Erreur: " + error.message);
-            // EmailJS ici si configuré
+            
+            if(!error) {
+                // Envoi mail à toi
+                emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+                    to_email: "200.ok.studio@gmail.com",
+                    client_name: myName,
+                    client_email: myEmail,
+                    date: dStr,
+                    time_slot: sel.time
+                });
+                alert("C'est réservé !");
+            } else {
+                alert("Erreur Supabase : " + error.message);
+            }
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
         }
