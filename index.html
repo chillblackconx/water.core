@@ -9,21 +9,21 @@
     <style>
         :root { --grad: linear-gradient(180deg, #000000 0%, #3533cd 100%); --blue: #3533cd; --bg: #f8fafc; --red: #ef4444; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #1e293b; }
-        .card { background: white; width: 95%; max-width: 450px; padding: 25px; border-radius: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); text-align: center; }
-        .logo { font-family: 'Arial Black', sans-serif; font-size: 2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; cursor: pointer; }
+        .card { background: white; width: 95%; max-width: 450px; padding: 25px; border-radius: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); text-align: center; border: 1px solid #e2e8f0; }
+        .logo { font-family: 'Arial Black', sans-serif; font-size: 2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; cursor: pointer; user-select: none; }
         .screen { display: none; flex-direction: column; gap: 12px; }
         .active { display: flex; }
         input { width: 100%; padding: 14px; border-radius: 12px; border: 2px solid #f1f5f9; box-sizing: border-box; }
-        .main-btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .main-btn { width: 100%; padding: 16px; color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
         .date-nav { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px; border-radius: 12px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; margin: 15px 0; }
-        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.8rem; border: 2px solid transparent; }
-        .slot.booked { background: #fee2e2; color: #b91c1c; border-color: #fecaca; } /* Rouge clair pour Admin */
-        .slot.mine { background: #dcfce7; color: #166534; border-color: #bbf7d0; } /* Vert pour l'utilisateur */
+        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.8rem; border: 2px solid transparent; transition: 0.2s; }
+        .slot.booked { background: #fee2e2; color: #b91c1c; border-color: #fecaca; } 
+        .slot.mine { background: #dcfce7; color: #166534; border-color: #bbf7d0; } 
         .slot.free { background: #f1f5f9; color: #64748b; }
-        .slot.selected { border-color: var(--blue); transform: scale(0.98); }
+        .slot.selected { border-color: var(--blue); transform: scale(0.96); }
         .admin-badge { background: #000; color: #fff; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; margin-bottom: 10px; display: inline-block; }
-        .logout { font-size: 0.7rem; color: #94a3b8; cursor: pointer; margin-top: 15px; }
+        .logout { font-size: 0.7rem; color: #94a3b8; cursor: pointer; margin-top: 15px; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -34,7 +34,7 @@
     <div id="auth-screen" class="screen active">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Mot de passe">
-        <button class="main-btn" onclick="handleAuth()">Accéder</button>
+        <button class="main-btn" style="background: var(--grad)" onclick="handleAuth()">Accéder</button>
     </div>
 
     <div id="app-screen" class="screen">
@@ -45,7 +45,7 @@
             <button onclick="changeDate(1)">▶</button>
         </div>
         <div id="time-grid" class="grid"></div>
-        <div id="info-box" style="font-size: 0.8rem; margin-bottom: 10px; color: var(--blue); min-height: 20px;"></div>
+        <div id="info-box" style="font-size: 0.75rem; color: #64748b; min-height: 20px;">Cliquez sur un créneau</div>
         <button id="action-btn" class="main-btn" style="display:none;" onclick="processAction()"></button>
         <div class="logout" onclick="logout()">Déconnexion</div>
     </div>
@@ -56,16 +56,14 @@
     let user = null, selectedDate = new Date(), selectedSlot = null;
     let isAdmin = false, tapCount = 0;
 
-    // --- LOGIQUE ADMIN CACHÉE ---
     function adminTaps() {
         tapCount++;
-        if (tapCount === 5) { // Clique 5 fois sur le logo
-            const code = prompt("Code secret Admin ?");
-            if (code === "1234") { // <--- TON CODE SECRET ICI
+        if (tapCount >= 5) {
+            const code = prompt("Code Admin ?");
+            if (code === "1234") {
                 isAdmin = true;
                 document.getElementById('admin-tag').style.display = "block";
-                alert("Mode Admin activé !");
-                if (user) renderPlanning();
+                renderPlanning();
             }
             tapCount = 0;
         }
@@ -77,7 +75,7 @@
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
         if (error) {
             const signup = await _supabase.auth.signUp({ email, password });
-            if (signup.error) return alert("Erreur d'accès");
+            if (signup.error) return alert("Vérifiez vos accès");
             user = signup.data.user;
         } else { user = data.user; }
         showApp();
@@ -86,7 +84,7 @@
     function showApp() {
         document.getElementById('auth-screen').classList.remove('active');
         document.getElementById('app-screen').classList.add('active');
-        _supabase.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, renderPlanning).subscribe();
+        _supabase.channel('db').on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, renderPlanning).subscribe();
         renderPlanning();
     }
 
@@ -97,7 +95,7 @@
 
     async function renderPlanning() {
         const dateKey = selectedDate.toISOString().split('T')[0];
-        document.getElementById('date-label').innerText = selectedDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+        document.getElementById('date-label').innerText = selectedDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
         
         const { data: bookings } = await _supabase.from('reservations').select('*').eq('date', dateKey);
         const grid = document.getElementById('time-grid');
@@ -112,29 +110,31 @@
                 const div = document.createElement('div');
                 div.className = 'slot ' + (isMine ? 'mine' : (booking ? 'booked' : 'free'));
                 
-                // Affichage différent pour Admin
                 if (isAdmin && booking) {
-                    div.innerHTML = `<span style="font-size:0.6rem">👤 ${booking.client_name.split('@')[0]}</span><br>${slotText}`;
+                    div.innerHTML = `<small>${booking.client_name.split('@')[0]}</small><br>${slotText}`;
                 } else {
-                    div.innerText = isMine ? "Ma Séance" : (booking ? "Indisponible" : slotText);
+                    div.innerText = isMine ? "Ma Séance" : (booking ? "Complet" : slotText);
                 }
                 
                 div.onclick = () => {
                     document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
                     div.classList.add('selected');
-                    document.getElementById('info-box').innerText = booking ? `Client : ${booking.client_name}` : "Créneau libre";
-
+                    
                     if (isAdmin && booking) {
                         selectedSlot = { id: booking.id, type: 'delete' };
-                        updateBtn("Supprimer (Admin)", var(--red));
+                        updateBtn("Supprimer (Admin)", "#ef4444");
+                        document.getElementById('info-box').innerText = "Client: " + booking.client_name;
                     } else if (isMine) {
                         selectedSlot = { id: booking.id, type: 'delete' };
-                        updateBtn("Annuler ma séance", var(--red));
+                        updateBtn("Annuler ma séance", "#ef4444");
+                        document.getElementById('info-box').innerText = "C'est votre réservation";
                     } else if (!booking) {
                         selectedSlot = { time: slotText, type: 'book' };
-                        updateBtn("Réserver " + slotText, "var(--grad)");
+                        updateBtn("Réserver " + slotText, "#3533cd");
+                        document.getElementById('info-box').innerText = "Créneau disponible";
                     } else {
                         document.getElementById('action-btn').style.display = "none";
+                        document.getElementById('info-box').innerText = "Déjà réservé par quelqu'un d'autre";
                     }
                 };
                 grid.appendChild(div);
@@ -144,16 +144,21 @@
 
     function updateBtn(txt, color) {
         const b = document.getElementById('action-btn');
-        b.innerText = txt; b.style.background = color; b.style.display = "block";
+        b.innerText = txt;
+        b.style.backgroundColor = color;
+        b.style.display = "block";
     }
 
     async function processAction() {
+        const btn = document.getElementById('action-btn');
+        btn.disabled = true;
         if (selectedSlot.type === 'book') {
             await _supabase.from('reservations').insert([{ user_id: user.id, date: selectedDate.toISOString().split('T')[0], time_slot: selectedSlot.time, client_name: user.email }]);
         } else {
             await _supabase.from('reservations').delete().eq('id', selectedSlot.id);
         }
-        document.getElementById('action-btn').style.display = "none";
+        btn.style.display = "none";
+        btn.disabled = false;
         renderPlanning();
     }
 
