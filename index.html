@@ -3,72 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watercore | Réservation Directe</title>
+    <title>Watercore | Simple</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --grad: linear-gradient(180deg, #000, #3533cd); --blue: #3533cd; }
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
-        .logo { font-family: 'Arial Black'; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; cursor: pointer; }
-        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; }
-        .btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.9rem; border: 2px solid transparent; }
-        .slot.booked { background: #fee2e2; color: #b91c1c; }
-        .slot.mine { background: #dcfce7; color: #166534; border-color: #22c55e; }
-        .slot.selected { border-color: var(--blue); }
-        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f5f9; padding: 8px; border-radius: 10px; }
+        body { font-family: sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 10px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 15px; background: var(--grad); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .slot { padding: 12px; background: #f1f5f9; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        .slot.taken { background: #fee2e2; color: #b91c1c; }
+        .slot.mine { background: #dcfce7; color: #166534; border: 2px solid #22c55e; }
+        .slot.selected { border: 2px solid var(--blue); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="logo" onclick="adminTaps()">WATERCORE</div>
+    <h2 style="font-family: Arial Black; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">WATERCORE</h2>
 
-    <div id="login-ui">
-        <input type="text" id="user-name" placeholder="Nom Complet">
-        <input type="email" id="user-email" placeholder="Email (sert d'identifiant)">
-        <button class="btn" onclick="enterApp()">Voir le planning</button>
+    <div id="login-step">
+        <input type="text" id="user-name" placeholder="Ton Nom">
+        <input type="email" id="user-email" placeholder="Ton Email">
+        <button class="btn" onclick="go()">Voir le planning</button>
     </div>
 
-    <div id="app-ui" style="display:none">
-        <div id="admin-info" style="display:none; color:red; font-size:0.7rem; font-weight:bold; margin-bottom:5px;">ADMIN ACTIVÉ</div>
-        <div class="date-nav">
+    <div id="app-step" style="display:none">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
             <button onclick="changeDate(-1)">◀</button>
-            <span id="date-label" style="font-weight:bold"></span>
+            <b id="date-label"></b>
             <button onclick="changeDate(1)">▶</button>
         </div>
         <div id="grid" class="grid"></div>
-        <button id="action-btn" class="btn" style="display:none" onclick="process()"></button>
+        <button id="action-btn" class="btn" style="display:none" onclick="send()"></button>
     </div>
 </div>
 
 <script>
     const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
-    let myEmail = "", myName = "", viewDate = new Date(), sel = null, isAdmin = false, taps = 0;
+    let myEmail = "", myName = "", viewDate = new Date(), sel = null;
 
-    function adminTaps() {
-        if (++taps >= 5) {
-            if(prompt("Code Admin ?") === "8888") {
-                isAdmin = true;
-                document.getElementById('admin-info').style.display = "block";
-                if(myEmail) load();
-            }
-            taps = 0;
-        }
-    }
-
-    function enterApp() {
-        myName = document.getElementById('user-name').value.trim();
-        myEmail = document.getElementById('user-email').value.trim().toLowerCase();
+    function go() {
+        myName = document.getElementById('user-name').value;
+        myEmail = document.getElementById('user-email').value;
         if(!myName || !myEmail) return alert("Remplis tout !");
-        
-        document.getElementById('login-ui').style.display = "none";
-        document.getElementById('app-ui').style.display = "block";
+        document.getElementById('login-step').style.display = "none";
+        document.getElementById('app-step').style.display = "block";
         load();
-        
-        // Active le temps réel sans authentification
-        _sb.channel('public-rooms').on('postgres_changes', {event:'*', schema:'public', table:'reservations'}, load).subscribe();
     }
 
     function changeDate(n) { viewDate.setDate(viewDate.getDate() + n); load(); }
@@ -84,47 +66,32 @@
         for (let h = 9; h < 16; h++) {
             ["00", "30"].forEach(m => {
                 const time = `${h}:${m}`;
-                const b = data?.find(x => x.time_slot.startsWith(time));
+                const b = data?.find(x => x.time_slot === time);
                 const isMine = b && b.client_email === myEmail;
 
                 const div = document.createElement('div');
-                div.className = 'slot' + (isMine ? ' mine' : (b ? ' booked' : ''));
+                div.className = 'slot' + (isMine ? ' mine' : (b ? ' taken' : ''));
+                div.innerText = isMine ? "Moi ("+time+")" : (b ? "Pris" : time);
                 
-                if (isAdmin && b) {
-                    div.innerHTML = `<small>${b.client_name}</small><br>${time}`;
-                } else {
-                    div.innerText = isMine ? "Ma séance" : (b ? "Complet" : time);
+                if(!b || isMine) {
+                    div.onclick = () => {
+                        document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+                        div.classList.add('selected');
+                        sel = isMine ? {id: b.id, type:'del'} : {time: time, type:'add'};
+                        const btn = document.getElementById('action-btn');
+                        btn.style.display = "block";
+                        btn.innerText = isMine ? "Annuler" : "Réserver " + time;
+                        btn.style.background = isMine ? "red" : "black";
+                    };
                 }
-
-                div.onclick = () => {
-                    document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-                    div.classList.add('selected');
-                    const btn = document.getElementById('action-btn');
-                    btn.style.display = "block";
-
-                    if ((isAdmin || isMine) && b) {
-                        sel = { id: b.id, type: 'del' };
-                        btn.innerText = isAdmin ? "Supprimer (Admin)" : "Annuler ma séance";
-                        btn.style.background = "#ef4444";
-                    } else if (!b) {
-                        sel = { time: time, type: 'add' };
-                        btn.innerText = "Réserver " + time;
-                        btn.style.background = "var(--grad)";
-                    } else { btn.style.display = "none"; }
-                };
                 container.appendChild(div);
             });
         }
     }
 
-    async function process() {
+    async function send() {
         if (sel.type === 'add') {
-            await _sb.from('reservations').insert([{ 
-                client_name: myName, 
-                client_email: myEmail,
-                date: viewDate.toISOString().split('T')[0], 
-                time_slot: sel.time 
-            }]);
+            await _sb.from('reservations').insert([{ client_name: myName, client_email: myEmail, date: viewDate.toISOString().split('T')[0], time_slot: sel.time }]);
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
         }
