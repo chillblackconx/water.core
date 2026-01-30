@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Watercore | Réservation</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%25%22 y1=%220%25%22 x2=%220%25%22 y2=%22100%22><stop offset=%220%25%22 style=%22stop-color:%23000000%22 /><stop offset=%22100%22 style=%22stop-color:%233533cd%22 /></linearGradient></defs><text y=%2280%22 x=%2250%22 font-family=%22Arial Black, sans-serif%22 font-weight=%22900%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22url(%23g)%22 style=%22letter-spacing:-5px%22>W</text></svg>">
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id=%22g%22 x1=%220%25%22 y1=%220%25%22 x2=%220%25%22 y2=%22100%22><stop offset=%220%25%22 style=%22stop-color:%23000000%22 /><stop offset=%22100%22 style=%22stop-color:%233533cd%22 /></linearGradient></defs><path d=%22M20 20 L40 80 L50 50 L60 80 L80 20%22 fill=%22none%22 stroke=%22url(%23g)%22 stroke-width=%2212%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -12,12 +13,13 @@
     <style>
         :root { --grad: linear-gradient(180deg, #000, #3533cd); --blue: #3533cd; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; border: 1px solid #e2e8f0; }
         .logo { font-family: 'Arial Black'; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
-        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; outline: none; }
         .btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .auto-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px dashed var(--blue); }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.9rem; border: 2px solid transparent; }
+        .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; border: 2px solid transparent; }
         .slot.booked { background: #fee2e2; color: #b91c1c; }
         .slot.mine { background: #dcfce7; color: #166534; border-color: #22c55e; }
         .slot.selected { border-color: var(--blue); }
@@ -30,10 +32,18 @@
     <div class="logo">WATERCORE</div>
 
     <div id="login-ui">
-        <input type="text" id="u-name" placeholder="Prénom">
-        <input type="email" id="u-email" placeholder="Email">
-        <input type="password" id="u-pass" placeholder="Mot de passe">
-        <button class="btn" onclick="enterApp()">Accéder au planning</button>
+        <div id="reco-box" style="display:none;" class="auto-box">
+            <p style="margin-bottom:10px;">C'est bien vous, <b id="reco-name"></b> ?</p>
+            <button class="btn" onclick="autoConnect()">Oui, entrer</button>
+            <p onclick="forgetMe()" style="font-size: 0.7rem; color: #94a3b8; margin-top: 10px; cursor: pointer; text-decoration: underline;">Non, changer de compte</p>
+        </div>
+
+        <div id="login-form">
+            <input type="text" id="u-name" placeholder="Prénom">
+            <input type="email" id="u-email" placeholder="Email">
+            <input type="password" id="u-pass" placeholder="Mot de passe">
+            <button class="btn" onclick="manualConnect()">Se connecter</button>
+        </div>
     </div>
 
     <div id="app-ui" style="display:none">
@@ -48,17 +58,46 @@
 </div>
 
 <script>
-    // Initialisation
     const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
-    emailjs.init("VOTRE_PUBLIC_KEY"); // <--- REMPLACE ICI
+    
+    // Remplace par tes clés EmailJS
+    emailjs.init("TON_USER_ID"); 
 
     let myEmail = "", myPass = "", myName = "", viewDate = new Date(), sel = null;
 
-    function enterApp() {
+    // Vérification LocalStorage au démarrage
+    window.onload = () => {
+        const saved = localStorage.getItem('watercore_session');
+        if (saved) {
+            const user = JSON.parse(saved);
+            document.getElementById('reco-box').style.display = "block";
+            document.getElementById('login-form').style.display = "none";
+            document.getElementById('reco-name').innerText = user.name;
+        }
+    };
+
+    function autoConnect() {
+        const user = JSON.parse(localStorage.getItem('watercore_session'));
+        myName = user.name; myEmail = user.email; myPass = user.pass;
+        showApp();
+    }
+
+    function manualConnect() {
         myName = document.getElementById('u-name').value.trim();
         myEmail = document.getElementById('u-email').value.trim().toLowerCase();
         myPass = document.getElementById('u-pass').value.trim();
         if(!myName || !myEmail || !myPass) return alert("Remplis tout !");
+        
+        localStorage.setItem('watercore_session', JSON.stringify({name: myName, email: myEmail, pass: myPass}));
+        showApp();
+    }
+
+    function forgetMe() {
+        localStorage.removeItem('watercore_session');
+        location.reload();
+    }
+
+    function showApp() {
         document.getElementById('login-ui').style.display = "none";
         document.getElementById('app-ui').style.display = "block";
         load();
@@ -80,7 +119,7 @@
                 const isMine = b && b.client_email === myEmail && b.password === myPass;
                 const div = document.createElement('div');
                 div.className = 'slot' + (isMine ? ' mine' : (b ? ' booked' : ''));
-                div.innerText = isMine ? "Ma séance" : (b ? "Complet" : time);
+                div.innerText = isMine ? "Ma séance" : (b ? "Pris" : time);
 
                 if(!b || isMine) {
                     div.onclick = () => {
@@ -94,7 +133,7 @@
                             btn.style.background = "#ef4444";
                         } else {
                             sel = { time: time, type: 'add' };
-                            btn.innerText = "Confirmer " + time;
+                            btn.innerText = "Réserver " + time;
                             btn.style.background = "var(--grad)";
                         }
                     };
@@ -105,30 +144,21 @@
     }
 
     async function process() {
-        const btn = document.getElementById('action-btn');
-        btn.disabled = true;
-        const dStr = viewDate.toISOString().split('T')[0];
-
         if (sel.type === 'add') {
             const { error } = await _sb.from('reservations').insert([{ 
-                client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
+                client_name: myName, client_email: myEmail, password: myPass, date: viewDate.toISOString().split('T')[0], time_slot: sel.time 
             }]);
             
             if(!error) {
-                // Envoi du mail via EmailJS
-                emailjs.send("VOTRE_SERVICE_ID", "VOTRE_TEMPLATE_ID", {
-                    client_name: myName,
-                    client_email: myEmail,
-                    date: dStr,
-                    time_slot: sel.time
+                emailjs.send("TON_SERVICE_ID", "TON_TEMPLATE_ID", {
+                    client_name: myName, client_email: myEmail, date: viewDate.toISOString().split('T')[0], time_slot: sel.time
                 });
-                alert("Réservé ! Email envoyé.");
+                alert("Réservé !");
             }
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
         }
-        btn.style.display = "none";
-        btn.disabled = false;
+        document.getElementById('action-btn').style.display = "none";
         load();
     }
 </script>
