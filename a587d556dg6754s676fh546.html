@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Watercore | GOD MODE</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; padding: 20px; }
+        h1, h2 { color: #38bdf8; text-transform: uppercase; border-bottom: 2px solid #38bdf8; display: inline-block; margin-bottom: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; }
+        
+        /* Stats & Message */
+        .stats-box { display: flex; justify-content: space-around; background: #020617; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        .stat-num { font-size: 1.5rem; color: #fbbf24; display: block; font-weight: bold; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th { text-align: left; color: #94a3b8; border-bottom: 1px solid #475569; padding: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #334155; }
+        
+        /* Inputs & Buttons */
+        input { background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; border-radius: 5px; width: 60%; }
+        button { cursor: pointer; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; }
+        .btn-update { background: #22c55e; color: black; }
+        .btn-del { background: #ef4444; color: white; } /* Bouton Annuler Réservation */
+        .btn-ban { background: #b91c1c; color: white; }
+        .btn-stalk { background: #a855f7; color: white; }
+
+        #logs-feed { height: 250px; overflow-y: auto; background: #020617; padding: 10px; border-radius: 5px; font-size: 0.75rem; }
+        .live-dot { height: 8px; width: 8px; background: #22c55e; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #22c55e; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+<h1>👁️ WATERCORE GOD MODE</h1>
+
+<div class="grid">
+    
+    <div class="card">
+        <h2>📢 Message Site</h2>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="site-msg" placeholder="Ex: Maintenance à 18h...">
+            <button class="btn-update" onclick="updateSite()">DIFFUSER</button>
+        </div>
+        
+        <div class="stats-box">
+            <div style="text-align:center"><span id="stat-live" class="stat-num" style="color:#22c55e">0</span><span style="font-size:0.7rem">EN LIGNE</span></div>
+            <div style="text-align:center"><span id="stat-res" class="stat-num">0</span><span style="font-size:0.7rem">RÉSERVATIONS</span></div>
+        </div>
+
+        <h2 style="margin-top:20px;">📜 Feed Activité <span class="live-dot"></span></h2>
+        <div id="logs-feed"></div>
+    </div>
+
+    <div class="card">
+        <h2>📅 Planning des Réservations</h2>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Heure</th>
+                        <th>Client</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="res-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="grid-column: span 2;">
+        <h2>💀 Contrôle des Utilisateurs</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Dernière Action</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
+
+    // ANNULER UNE RÉSERVATION (Nouveau !)
+    async function deleteRes(id) {
+        if(confirm("Supprimer cette réservation définitivement ?")) {
+            const { error } = await _sb.from('reservations').delete().eq('id', id);
+            if(!error) refreshData();
+        }
+    }
+
+    async function ban(email) {
+        if(confirm("BANNIR " + email + " ?")) {
+            await _sb.from('banned_users').insert([{ email: email }]);
+            refreshData();
+        }
+    }
+
+    async function unban(email) {
+        await _sb.from('banned_users').delete().eq('email', email);
+        refreshData();
+    }
+
+    async function updateSite() {
+        const msg = document.getElementById('site-msg').value;
+        await _sb.from('site_config').update({ news_message: msg }).eq('id', 1);
+        alert("Message mis à jour !");
+    }
+
+    async function refreshData() {
+        const { data: res } = await _sb.from('reservations').select('*').order('date', {ascending: true});
+        const { data: bans } = await _sb.from('banned_users').select('*');
+        const { data: logs } = await _sb.from('user_logs').select('*').order('created_at', { ascending: false }).limit(40);
+
+        // Compteur en ligne (3 min d'activité)
+        const now = new Date();
+        const activeMins = new Date(now.getTime() - 3 * 60000);
+        const onlineUsers = logs ? [...new Set(logs.filter(l => new Date(l.created_at) > activeMins).map(l => l.email))] : [];
+        document.getElementById('stat-live').innerText = onlineUsers.length;
+        document.getElementById('stat-res').innerText = res ? res.length : 0;
+
+        // Remplir Table Réservations avec bouton Annuler
+        const resTable = document.getElementById('res-table');
+        resTable.innerHTML = res ? res.map(r => `
+            <tr>
+                <td>${r.date}</td>
+                <td><b>${r.time_slot}</b></td>
+                <td>${r.client_name} <br><small>${r.client_email}</small></td>
+                <td><button class="btn-del" onclick="deleteRes(${r.id})">ANNULER</button></td>
+            </tr>
+        `).join('') : '';
+
+        // Remplir Logs Feed
+        document.getElementById('logs-feed').innerHTML = logs ? logs.map(l => `
+            <div style="margin-bottom:5px; border-bottom:1px solid #334155; padding-bottom:2px;">
+                <span style="color:#64748b">[${new Date(l.created_at).toLocaleTimeString()}]</span> 
+                <b>${l.email}</b> : ${l.action}
+            </div>
+        `).join('') : '';
+
+        // Remplir Table Users
+        let usersMap = {};
+        if(logs) logs.forEach(l => { if(!usersMap[l.email]) usersMap[l.email] = l.action; });
+        
+        document.getElementById('users-table').innerHTML = Object.keys(usersMap).map(email => {
+            const isBanned = bans?.find(b => b.email === email);
+            const isOnline = onlineUsers.includes(email);
+            return `
+                <tr>
+                    <td>${email} ${isOnline ? '🟢' : ''}</td>
+                    <td>${usersMap[email]}</td>
+                    <td style="color:${isBanned ? 'red' : (isOnline ? '#22c55e' : '#94a3b8')}">
+                        ${isBanned ? 'BANNI' : (isOnline ? 'EN LIGNE' : 'HORS LIGNE')}
+                    </td>
+                    <td>
+                        ${isBanned 
+                            ? `<button style="background:#3b82f6; color:white" onclick="unban('${email}')">DÉBANNIR</button>` 
+                            : `<button class="btn-ban" onclick="ban('${email}')">BANNIR</button>`
+                        }
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    setInterval(refreshData, 3000);
+    refreshData();
+</script>
+</body>
+</html>
