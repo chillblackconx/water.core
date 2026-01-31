@@ -144,7 +144,44 @@
     async function process() {
         const dStr = viewDate.toISOString().split('T')[0];
         const btn = document.getElementById('action-btn');
-        btn.disabled = true; // Évite les doubles clics
+        btn.disabled = true; 
+
+        if (sel.type === 'add') {
+            const { error } = await _sb.from('reservations').insert([{ 
+                client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
+            }]);
+            
+            if(!error) {
+                // Configuration pour que TOI et LE CLIENT soyez au courant
+                const templateParams = {
+                    to_email: myEmail,                // Le client reçoit la confirmation
+                    admin_email: "oxy.core.dev@gmail.com", // Ton email de studio
+                    client_name: myName,
+                    client_email: myEmail,
+                    date: dStr,
+                    time_slot: sel.time
+                };
+
+                emailjs.send(EJS_SERVICE, EJS_TEMPLATE, templateParams)
+                    .then(() => {
+                        alert("Séance réservée ! Email envoyé à " + myEmail);
+                    })
+                    .catch((err) => {
+                        console.error("Erreur EmailJS:", err);
+                        alert("Réservé, mais bug d'envoi mail (Erreur: " + err.status + ")");
+                    });
+            } else {
+                alert("Erreur de réservation : " + error.message);
+            }
+        } else {
+            await _sb.from('reservations').delete().eq('id', sel.id);
+            alert("Séance annulée.");
+        }
+        
+        btn.style.display = "none";
+        btn.disabled = false;
+        load();
+    }
 
         if (sel.type === 'add') {
             const { error } = await _sb.from('reservations').insert([{ 
