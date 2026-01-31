@@ -28,7 +28,6 @@
 
 <div class="card">
     <div class="logo">WATERCORE</div>
-    
     <div id="login-ui">
         <div id="reco-box" style="display:none; background:#f1f5f9; padding:15px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--blue);">
             <p>C'est vous, <b id="reco-name"></b> ?</p>
@@ -42,12 +41,11 @@
             <button class="btn" onclick="manualConnect()">Se connecter</button>
         </div>
     </div>
-
     <div id="app-ui" style="display:none">
         <div class="date-nav">
-            <button onclick="changeDate(-1)" style="border:none; background:none; cursor:pointer;">◀</button>
+            <button onclick="changeDate(-1)">◀</button>
             <span id="date-label" style="font-weight:bold"></span>
-            <button onclick="changeDate(1)" style="border:none; background:none; cursor:pointer;">▶</button>
+            <button onclick="changeDate(1)">▶</button>
         </div>
         <div id="grid" class="grid"></div>
         <button id="action-btn" class="btn" style="display:none" onclick="process()"></button>
@@ -57,12 +55,13 @@
 <script>
     const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
     
+    // Config EmailJS
     const EJS_SERVICE = "service_vlw8hol";
     const EJS_TEMPLATE = "template_t4uzj6m";
     emailjs.init("BAfMFTCd2YLwvXa7c");
 
-    const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
     let myEmail = "", myPass = "", myName = "", viewDate = new Date(), sel = null;
+    const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
 
     window.onload = () => {
         const saved = localStorage.getItem('wc_session');
@@ -97,7 +96,6 @@
         const dStr = viewDate.toISOString().split('T')[0];
         document.getElementById('date-label').innerText = viewDate.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
         const { data } = await _sb.from('reservations').select('*').eq('date', dStr);
-        
         const now = new Date();
         const container = document.getElementById('grid');
         container.innerHTML = "";
@@ -151,20 +149,18 @@
             }]);
             
             if(!error) {
-                // ENVOI À OXY.CORE.DEV
-                const params = {
-                    to_email: "oxy.core.dev@gmail.com",
-                    client_name: myName,
-                    client_email: myEmail,
-                    date: dStr,
-                    time_slot: sel.time
+                // VARIABLES SIMPLES POUR ÉVITER TOUT CONFLIT
+                const templateParams = {
+                    send_to: "oxy.core.dev@gmail.com",
+                    user_name: myName,
+                    user_email: myEmail,
+                    res_date: dStr,
+                    res_time: sel.time
                 };
 
-                emailjs.send(EJS_SERVICE, EJS_TEMPLATE, params)
-                    .then(() => alert("Réservé et email envoyé au studio !"))
-                    .catch(() => alert("Réservé, mais l'email n'est pas parti."));
-            } else {
-                alert("Erreur : " + error.message);
+                emailjs.send(EJS_SERVICE, EJS_TEMPLATE, templateParams)
+                    .then(() => alert("C'est réservé ! Email envoyé au studio."))
+                    .catch((err) => alert("Réservé, mais erreur email : " + err.status));
             }
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
