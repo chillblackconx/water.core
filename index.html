@@ -143,34 +143,35 @@ async function process() {
     const btn = document.getElementById('action-btn');
     btn.disabled = true;
 
+    // On récupère l'email direct depuis le stockage pour être sûr à 100%
+    const savedSession = JSON.parse(localStorage.getItem('wc_session'));
+    const targetEmail = savedSession ? savedSession.email : myEmail;
+
     if (sel.type === 'add') {
         const { error } = await _sb.from('reservations').insert([{ 
-            client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
+            client_name: myName, client_email: targetEmail, password: myPass, date: dStr, time_slot: sel.time 
         }]);
         
         if(!error) {
-            // Ces noms DOIVENT être les mêmes que dans les {{ }} sur EmailJS
             const params = {
-                email_dest: myEmail, // L'adresse du client
-                prenom: myName,      // Le nom du client
+                email: targetEmail, // Envoyé au {{email}} du dashboard
+                from_name: "Watercore",
+                user_name: myName,
                 date: dStr,
-                heure: sel.time
+                slot: sel.time
             };
 
             emailjs.send(EJS_SERVICE, EJS_TEMPLATE, params)
-                .then(() => alert("Réussi ! Mail envoyé à : " + myEmail))
+                .then(() => alert("C'est bon ! Mail envoyé à " + targetEmail))
                 .catch((err) => {
-                    console.log("Erreur :", err);
-                    alert("Erreur EmailJS : " + err.status + " - Vérifie que ton template utilise bien {{email_dest}}");
+                    console.error("Erreur détaillée:", err);
+                    alert("Erreur mail (" + err.status + "). Vérifie que ton template EmailJS utilise {{email}}");
                 });
-        } else {
-            alert("Erreur Supabase : " + error.message);
         }
     } else {
         await _sb.from('reservations').delete().eq('id', sel.id);
-        alert("Séance annulée.");
+        alert("Annulé.");
     }
-    
     btn.style.display = "none";
     btn.disabled = false;
     load();
