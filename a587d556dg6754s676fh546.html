@@ -86,94 +86,170 @@
         </table>
     </div>
 </div>
-
 <script>
-    const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
+    const _sb = supabase.createClient(
+        "https://nztzvktjcezmzgxppqoa.supabase.co",
+        "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG"
+    );
 
-    // ANNULER UNE RÉSERVATION (Nouveau !)
-    async function deleteRes(id) {
-        if(confirm("Supprimer cette réservation définitivement ?")) {
-            const { error } = await _sb.from('reservations').delete().eq('id', id);
-            if(!error) refreshData();
+    // ====== ANNULER UNE RÉSERVATION ======
+    window.deleteRes = async function(id) {
+        if (!confirm("Supprimer cette réservation définitivement ?")) return;
+
+        const { error } = await _sb
+            .from('reservations')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error("DELETE reservation error:", error);
+            alert(error.message);
+            return;
         }
-    }
 
-    async function ban(email) {
-        if(confirm("BANNIR " + email + " ?")) {
-            await _sb.from('banned_users').insert([{ email: email }]);
-            refreshData();
-        }
-    }
-
-    async function unban(email) {
-        await _sb.from('banned_users').delete().eq('email', email);
         refreshData();
-    }
+    };
 
-    async function updateSite() {
+    // ====== BAN / UNBAN ======
+    window.ban = async function(email) {
+        if (!confirm("BANNIR " + email + " ?")) return;
+
+        const { error } = await _sb
+            .from('banned_users')
+            .insert([{ email }]);
+
+        if (error) {
+            console.error("BAN error:", error);
+            alert(error.message);
+            return;
+        }
+
+        refreshData();
+    };
+
+    window.unban = async function(email) {
+        const { error } = await _sb
+            .from('banned_users')
+            .delete()
+            .eq('email', email);
+
+        if (error) {
+            console.error("UNBAN error:", error);
+            alert(error.message);
+            return;
+        }
+
+        refreshData();
+    };
+
+    // ====== MESSAGE SITE ======
+    window.updateSite = async function() {
         const msg = document.getElementById('site-msg').value;
-        await _sb.from('site_config').update({ news_message: msg }).eq('id', 1);
+
+        const { error } = await _sb
+            .from('site_config')
+            .update({ news_message: msg })
+            .eq('id', 1);
+
+        if (error) {
+            console.error("UPDATE SITE error:", error);
+            alert(error.message);
+            return;
+        }
+
         alert("Message mis à jour !");
-    }
+    };
 
+    // ====== RAFRAÎCHISSEMENT ======
     async function refreshData() {
-        const { data: res } = await _sb.from('reservations').select('*').order('date', {ascending: true});
-        const { data: bans } = await _sb.from('banned_users').select('*');
-        const { data: logs } = await _sb.from('user_logs').select('*').order('created_at', { ascending: false }).limit(40);
+        const { data: res } = await _sb
+            .from('reservations')
+            .select('*')
+            .order('date', { ascending: true });
 
-        // Compteur en ligne (3 min d'activité)
+        const { data: bans } = await _sb
+            .from('banned_users')
+            .select('*');
+
+        const { data: logs } = await _sb
+            .from('user_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(40);
+
+        // En ligne (3 min)
         const now = new Date();
         const activeMins = new Date(now.getTime() - 3 * 60000);
-        const onlineUsers = logs ? [...new Set(logs.filter(l => new Date(l.created_at) > activeMins).map(l => l.email))] : [];
+        const onlineUsers = logs
+            ? [...new Set(
+                logs
+                    .filter(l => new Date(l.created_at) > activeMins)
+                    .map(l => l.email)
+            )]
+            : [];
+
         document.getElementById('stat-live').innerText = onlineUsers.length;
         document.getElementById('stat-res').innerText = res ? res.length : 0;
 
-        // Remplir Table Réservations avec bouton Annuler
-        const resTable = document.getElementById('res-table');
-        resTable.innerHTML = res ? res.map(r => `
-            <tr>
-                <td>${r.date}</td>
-                <td><b>${r.time_slot}</b></td>
-                <td>${r.client_name} <br><small>${r.client_email}</small></td>
-                <td><button class="btn-del" onclick="deleteRes(${r.id})">ANNULER</button></td>
-            </tr>
-        `).join('') : '';
-
-        // Remplir Logs Feed
-        document.getElementById('logs-feed').innerHTML = logs ? logs.map(l => `
-            <div style="margin-bottom:5px; border-bottom:1px solid #334155; padding-bottom:2px;">
-                <span style="color:#64748b">[${new Date(l.created_at).toLocaleTimeString()}]</span> 
-                <b>${l.email}</b> : ${l.action}
-            </div>
-        `).join('') : '';
-
-        // Remplir Table Users
-        let usersMap = {};
-        if(logs) logs.forEach(l => { if(!usersMap[l.email]) usersMap[l.email] = l.action; });
-        
-        document.getElementById('users-table').innerHTML = Object.keys(usersMap).map(email => {
-            const isBanned = bans?.find(b => b.email === email);
-            const isOnline = onlineUsers.includes(email);
-            return `
+        // Table réservations
+        document.getElementById('res-table').innerHTML = res
+            ? res.map(r => `
                 <tr>
-                    <td>${email} ${isOnline ? '🟢' : ''}</td>
-                    <td>${usersMap[email]}</td>
-                    <td style="color:${isBanned ? 'red' : (isOnline ? '#22c55e' : '#94a3b8')}">
-                        ${isBanned ? 'BANNI' : (isOnline ? 'EN LIGNE' : 'HORS LIGNE')}
-                    </td>
+                    <td>${r.date}</td>
+                    <td><b>${r.time_slot}</b></td>
+                    <td>${r.client_name}<br><small>${r.client_email}</small></td>
                     <td>
-                        ${isBanned 
-                            ? `<button style="background:#3b82f6; color:white" onclick="unban('${email}')">DÉBANNIR</button>` 
-                            : `<button class="btn-ban" onclick="ban('${email}')">BANNIR</button>`
-                        }
+                        <button class="btn-del" onclick="deleteRes(${r.id})">
+                            ANNULER
+                        </button>
                     </td>
                 </tr>
-            `;
-        }).join('');
+            `).join('')
+            : '';
+
+        // Logs
+        document.getElementById('logs-feed').innerHTML = logs
+            ? logs.map(l => `
+                <div style="margin-bottom:5px;border-bottom:1px solid #334155;padding-bottom:2px;">
+                    <span style="color:#64748b">
+                        [${new Date(l.created_at).toLocaleTimeString()}]
+                    </span>
+                    <b>${l.email}</b> : ${l.action}
+                </div>
+            `).join('')
+            : '';
+
+        // Users
+        const usersMap = {};
+        logs?.forEach(l => {
+            if (!usersMap[l.email]) usersMap[l.email] = l.action;
+        });
+
+        document.getElementById('users-table').innerHTML =
+            Object.keys(usersMap).map(email => {
+                const isBanned = bans?.find(b => b.email === email);
+                const isOnline = onlineUsers.includes(email);
+
+                return `
+                    <tr>
+                        <td>${email} ${isOnline ? '🟢' : ''}</td>
+                        <td>${usersMap[email]}</td>
+                        <td style="color:${isBanned ? 'red' : isOnline ? '#22c55e' : '#94a3b8'}">
+                            ${isBanned ? 'BANNI' : isOnline ? 'EN LIGNE' : 'HORS LIGNE'}
+                        </td>
+                        <td>
+                            ${isBanned
+                                ? `<button style="background:#3b82f6;color:white" onclick="unban('${email}')">DÉBANNIR</button>`
+                                : `<button class="btn-ban" onclick="ban('${email}')">BANNIR</button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
     }
 
-    setInterval(refreshData, 3000);
     refreshData();
+    setInterval(refreshData, 3000);
 </script>
 </body>
 </html>
