@@ -250,6 +250,29 @@
 
     refreshData();
     setInterval(refreshData, 3000);
+    document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn-del");
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    if (!id) return;
+
+    if (!confirm("Supprimer cette réservation définitivement ?")) return;
+
+    const { error } = await _sb
+        .from("reservations")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        console.error(error);
+        alert(error.message);
+        return;
+    }
+
+    refreshData();
+});
+
 </script>
 </body>
 </html>
