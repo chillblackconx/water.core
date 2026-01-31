@@ -134,7 +134,7 @@
             if(data) document.getElementById('banned-screen').style.display = 'block';
             
             const { data: msg } = await _sb.from('site_config').select('news_message').single();
-            if(msg) document.getElementById('dynamic-msg').innerText = "📢 " + msg.news_message;
+            if(msg) document.getElementById('dynamic-msg').innerText = "message: " + msg.news_message;
         }, 5000);
     }
 
