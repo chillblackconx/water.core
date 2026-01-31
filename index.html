@@ -6,11 +6,10 @@
     <title>Watercore | Réservation</title>
     <link rel="icon" href="https://water-core.vercel.app/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         :root { --grad: linear-gradient(180deg, #000, #3533cd); --blue: #3533cd; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; position: relative; }
         .logo { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
         input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; outline: none; }
         .btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
@@ -18,21 +17,28 @@
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .slot { padding: 12px; background: #f8fafc; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; border: 2px solid transparent; transition: 0.2s; }
         .slot.booked { background: #fee2e2; color: #b91c1c; cursor: not-allowed; }
-        .slot.past { background: #e2e8f0 !important; color: #94a3b8 !important; cursor: not-allowed !important; opacity: 0.6; }
+        .slot.past { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; opacity: 0.6; }
         .slot.mine { background: #dcfce7; color: #166534; border-color: #22c55e; }
         .slot.selected { border-color: var(--blue); transform: scale(0.95); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f5f9; padding: 8px; border-radius: 10px; }
+        
+        /* Écran Paiement */
+        #payment-ui { display: none; text-align: center; }
+        .pay-card { background: #f0f7ff; border: 2px solid #3533cd; padding: 20px; border-radius: 15px; margin: 20px 0; }
+        .copy-box { display: flex; background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .copy-btn { background: #3533cd; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div class="logo">WATERCORE</div>
+
     <div id="login-ui">
-        <div id="reco-box" style="display:none; background:#f1f5f9; padding:15px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--blue);">
+        <div id="reco-box" style="display:none; background:#f1f5f9; padding:15px; border-radius:12px; margin-bottom:15px;">
             <p>C'est vous, <b id="reco-name"></b> ?</p>
             <button class="btn" onclick="autoConnect()">Oui, entrer</button>
-            <p onclick="forget()" style="font-size:0.7rem; cursor:pointer; text-decoration:underline; margin-top:10px;">Non, changer de compte</p>
+            <p onclick="forget()" style="font-size:0.7rem; cursor:pointer; text-decoration:underline; margin-top:10px;">Changer de compte</p>
         </div>
         <div id="login-form">
             <input type="text" id="u-name" placeholder="Prénom">
@@ -41,6 +47,7 @@
             <button class="btn" onclick="manualConnect()">Se connecter</button>
         </div>
     </div>
+
     <div id="app-ui" style="display:none">
         <div class="date-nav">
             <button onclick="changeDate(-1)">◀</button>
@@ -48,20 +55,27 @@
             <button onclick="changeDate(1)">▶</button>
         </div>
         <div id="grid" class="grid"></div>
-        <button id="action-btn" class="btn" style="display:none" onclick="process()"></button>
+        <button id="action-btn" class="btn" style="display:none; margin-top:10px;" onclick="process()"></button>
+    </div>
+
+    <div id="payment-ui">
+        <h3>Réservation confirmée !</h3>
+        <p>Pour finaliser votre séance, effectuez le paiement ici :</p>
+        <div class="pay-card">
+            <span style="font-size: 0.8rem; color: #666;">Email de paiement :</span>
+            <div class="copy-box">
+                <span id="pay-email">shadizainali@gmail.com</span>
+                <button class="copy-btn" onclick="copyEmail()">Copier</button>
+            </div>
+        </div>
+        <p style="font-size: 0.8rem; color: #ef4444;">⚠️ Si le paiement n'est pas reçu, la séance sera annulée.</p>
+        <button class="btn" onclick="closePayment()">Retour au planning</button>
     </div>
 </div>
 
 <script>
     const _sb = supabase.createClient("https://nztzvktjcezmzgxppqoa.supabase.co", "sb_publishable_FVxAXXOgca6B7oye9BFW4w_a6ga3GWG");
-    
-    // Config EmailJS
-    const EJS_SERVICE = "service_vlw8hol";
-    const EJS_TEMPLATE = "template_t4uzj6m";
-    emailjs.init("BAfMFTCd2YLwvXa7c");
-
     let myEmail = "", myPass = "", myName = "", viewDate = new Date(), sel = null;
-    const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
 
     window.onload = () => {
         const saved = localStorage.getItem('wc_session');
@@ -75,8 +89,7 @@
 
     function autoConnect() { 
         const u = JSON.parse(localStorage.getItem('wc_session')); 
-        myName=u.name; myEmail=u.email; myPass=u.pass; 
-        start(); 
+        myName=u.name; myEmail=u.email; myPass=u.pass; start(); 
     }
 
     function manualConnect() {
@@ -88,8 +101,25 @@
         start();
     }
 
+    function start() { 
+        document.getElementById('login-ui').style.display="none"; 
+        document.getElementById('app-ui').style.display="block"; 
+        load(); 
+    }
+
+    function copyEmail() {
+        const email = document.getElementById('pay-email').innerText;
+        navigator.clipboard.writeText(email);
+        alert("Email copié !");
+    }
+
+    function closePayment() {
+        document.getElementById('payment-ui').style.display = "none";
+        document.getElementById('app-ui').style.display = "block";
+        load();
+    }
+
     function forget() { localStorage.removeItem('wc_session'); location.reload(); }
-    function start() { document.getElementById('login-ui').style.display="none"; document.getElementById('app-ui').style.display="block"; load(); }
     function changeDate(n) { viewDate.setDate(viewDate.getDate() + n); load(); }
 
     async function load() {
@@ -104,32 +134,28 @@
             ["00", "30"].forEach(m => {
                 const time = `${h}:${m}`;
                 const b = data?.find(x => x.time_slot === time);
-                const isMine = b && b.client_email === myEmail && b.password === myPass;
+                const isMine = b && b.client_email === myEmail;
                 const slotDate = new Date(viewDate);
                 slotDate.setHours(h, parseInt(m), 0, 0);
                 const isPast = slotDate < now;
 
                 const div = document.createElement('div');
                 div.className = 'slot' + (isMine ? ' mine' : (b ? ' booked' : (isPast ? ' past' : '')));
-                let txt = isMine ? "Ma séance" : (b ? "Pris" : time);
-                if (isAdmin && b) txt += `<br><small style="font-size:0.6rem">👤 ${b.client_name}</small>`;
-                div.innerHTML = txt;
+                div.innerHTML = isMine ? "Ma séance" : (b ? "Pris" : time);
 
-                if (!isPast || isAdmin || isMine) {
+                if (!isPast || isMine) {
                     div.onclick = () => {
-                        if (b && !isMine && !isAdmin) return;
+                        if (b && !isMine) return;
                         document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
                         div.classList.add('selected');
                         const btn = document.getElementById('action-btn');
                         btn.style.display = "block";
-                        if (isMine || (isAdmin && b)) {
+                        if (isMine) {
                             sel = { id: b.id, type: 'del' };
-                            btn.innerText = "Annuler la séance";
-                            btn.style.background = "red";
+                            btn.innerText = "Annuler la séance"; btn.style.background = "red";
                         } else {
                             sel = { time: time, type: 'add' };
-                            btn.innerText = "Confirmer " + time;
-                            btn.style.background = "black";
+                            btn.innerText = "Confirmer " + time; btn.style.background = "black";
                         }
                     };
                 }
@@ -138,44 +164,28 @@
         }
     }
 
-async function process() {
-    const dStr = viewDate.toISOString().split('T')[0];
-    const btn = document.getElementById('action-btn');
-    btn.disabled = true;
+    async function process() {
+        const dStr = viewDate.toISOString().split('T')[0];
+        const btn = document.getElementById('action-btn');
+        btn.disabled = true;
 
-    // On récupère l'email direct depuis le stockage pour être sûr à 100%
-    const savedSession = JSON.parse(localStorage.getItem('wc_session'));
-    const targetEmail = savedSession ? savedSession.email : myEmail;
-
-    if (sel.type === 'add') {
-        const { error } = await _sb.from('reservations').insert([{ 
-            client_name: myName, client_email: targetEmail, password: myPass, date: dStr, time_slot: sel.time 
-        }]);
-        
-        if(!error) {
-            const params = {
-                email: targetEmail, // Envoyé au {{email}} du dashboard
-                from_name: "Watercore",
-                user_name: myName,
-                date: dStr,
-                slot: sel.time
-            };
-
-            emailjs.send(EJS_SERVICE, EJS_TEMPLATE, params)
-                .then(() => alert("C'est bon ! Mail envoyé à " + targetEmail))
-                .catch((err) => {
-                    console.error("Erreur détaillée:", err);
-                    alert("Erreur mail (" + err.status + "). Vérifie que ton template EmailJS utilise {{email}}");
-                });
+        if (sel.type === 'add') {
+            const { error } = await _sb.from('reservations').insert([{ 
+                client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
+            }]);
+            
+            if (!error) {
+                document.getElementById('app-ui').style.display = "none";
+                document.getElementById('payment-ui').style.display = "block";
+            }
+        } else {
+            await _sb.from('reservations').delete().eq('id', sel.id);
+            alert("Séance annulée.");
+            load();
         }
-    } else {
-        await _sb.from('reservations').delete().eq('id', sel.id);
-        alert("Annulé.");
+        btn.style.display = "none";
+        btn.disabled = false;
     }
-    btn.style.display = "none";
-    btn.disabled = false;
-    load();
-}
 </script>
 </body>
 </html>
