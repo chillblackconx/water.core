@@ -138,7 +138,7 @@
         }
     }
 
-    async function process() {
+   async function process() {
         const dStr = viewDate.toISOString().split('T')[0];
         const btn = document.getElementById('action-btn');
         btn.disabled = true;
@@ -149,18 +149,17 @@
             }]);
             
             if(!error) {
-                // VARIABLES SIMPLES POUR ÉVITER TOUT CONFLIT
+                // ICI : On envoie à l'email que le client a tapé (myEmail)
                 const templateParams = {
-                    send_to: "oxy.core.dev@gmail.com",
-                    user_name: myName,
-                    user_email: myEmail,
+                    client_dest: myEmail, 
+                    client_name: myName,
                     res_date: dStr,
                     res_time: sel.time
                 };
 
                 emailjs.send(EJS_SERVICE, EJS_TEMPLATE, templateParams)
-                    .then(() => alert("C'est réservé ! Email envoyé au studio."))
-                    .catch((err) => alert("Réservé, mais erreur email : " + err.status));
+                    .then(() => alert("Réservé ! Un mail de confirmation a été envoyé à " + myEmail))
+                    .catch((err) => alert("Réservé, mais erreur d'envoi au client."));
             }
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
