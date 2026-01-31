@@ -9,7 +9,7 @@
     <style>
         :root { --grad: linear-gradient(180deg, #000, #3533cd); --blue: #3533cd; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; position: relative; }
+        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; position: relative; min-height: 450px; }
         .logo { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
         input { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #f1f5f9; border-radius: 12px; box-sizing: border-box; font-size: 1rem; outline: none; }
         .btn { width: 100%; padding: 16px; background: var(--grad); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
@@ -22,19 +22,24 @@
         .slot.selected { border-color: var(--blue); transform: scale(0.95); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f5f9; padding: 8px; border-radius: 10px; }
         
-        /* Écran Paiement */
-        #payment-ui { display: none; text-align: center; }
-        .pay-card { background: #f0f7ff; border: 2px solid #3533cd; padding: 20px; border-radius: 15px; margin: 20px 0; }
+        /* Mon Compte Icone */
+        #acc-btn { position: absolute; top: 25px; right: 25px; font-size: 1.4rem; cursor: pointer; display: none; }
+        .view { display: none; }
+        .active { display: block; }
+
+        /* Écran Paiement & Compte */
+        .info-box { background: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; text-align: left; margin-bottom: 20px; }
         .copy-box { display: flex; background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; justify-content: space-between; align-items: center; margin-top: 10px; }
-        .copy-btn { background: #3533cd; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
+        .copy-btn { background: #3533cd; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; }
     </style>
 </head>
 <body>
 
 <div class="card">
+    <div id="acc-btn" onclick="showView('account-ui')">👤</div>
     <div class="logo">WATERCORE</div>
 
-    <div id="login-ui">
+    <div id="login-ui" class="view active">
         <div id="reco-box" style="display:none; background:#f1f5f9; padding:15px; border-radius:12px; margin-bottom:15px;">
             <p>C'est vous, <b id="reco-name"></b> ?</p>
             <button class="btn" onclick="autoConnect()">Oui, entrer</button>
@@ -48,7 +53,7 @@
         </div>
     </div>
 
-    <div id="app-ui" style="display:none">
+    <div id="app-ui" class="view">
         <div class="date-nav">
             <button onclick="changeDate(-1)">◀</button>
             <span id="date-label" style="font-weight:bold"></span>
@@ -58,18 +63,28 @@
         <button id="action-btn" class="btn" style="display:none; margin-top:10px;" onclick="process()"></button>
     </div>
 
-    <div id="payment-ui">
-        <h3>Réservation confirmée !</h3>
-        <p>Pour finaliser votre séance, effectuez le paiement ici :</p>
-        <div class="pay-card">
-            <span style="font-size: 0.8rem; color: #666;">Email de paiement :</span>
+    <div id="payment-ui" class="view">
+        <h3>Réservé ! ✅</h3>
+        <p>Pour finaliser, payez ici :</p>
+        <div class="info-box" style="border-color: #f59e0b;">
+            <span style="font-size: 0.8rem;">Email PayPal / Virement :</span>
             <div class="copy-box">
-                <span id="pay-email">shadizainali@gmail.com</span>
-                <button class="copy-btn" onclick="copyEmail()">Copier</button>
+                <b id="pay-email">shadizainali@gmail.com</b>
+                <button class="copy-btn" onclick="copyText('pay-email')">Copier</button>
             </div>
         </div>
-        <p style="font-size: 0.8rem; color: #ef4444;">⚠️ Si le paiement n'est pas reçu, la séance sera annulée.</p>
-        <button class="btn" onclick="closePayment()">Retour au planning</button>
+        <button class="btn" onclick="showView('app-ui')">Fermer</button>
+    </div>
+
+    <div id="account-ui" class="view">
+        <h3>Mon Compte</h3>
+        <div class="info-box">
+            <p>Prénom : <b id="acc-name"></b></p>
+            <p>Pass : <b id="acc-pass"></b></p>
+            <p>Mes séances : <b id="acc-count">0</b></p>
+        </div>
+        <button class="btn" onclick="showView('app-ui')">Retour</button>
+        <p onclick="forget()" style="font-size:0.7rem; color:red; cursor:pointer; margin-top:15px;">Déconnexion</p>
     </div>
 </div>
 
@@ -87,36 +102,43 @@
         }
     };
 
+    function showView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'account-ui') updateAccount();
+        if(id === 'app-ui') load();
+    }
+
     function autoConnect() { 
         const u = JSON.parse(localStorage.getItem('wc_session')); 
-        myName=u.name; myEmail=u.email; myPass=u.pass; start(); 
+        login(u.name, u.email, u.pass);
     }
 
     function manualConnect() {
-        myName = document.getElementById('u-name').value.trim();
-        myEmail = document.getElementById('u-email').value.trim().toLowerCase();
-        myPass = document.getElementById('u-pass').value.trim();
-        if(!myName || !myEmail || !myPass) return alert("Remplis tout");
-        localStorage.setItem('wc_session', JSON.stringify({name:myName, email:myEmail, pass:myPass}));
-        start();
+        const n = document.getElementById('u-name').value;
+        const e = document.getElementById('u-email').value.toLowerCase();
+        const p = document.getElementById('u-pass').value;
+        if(!n || !e || !p) return alert("Remplis tout");
+        localStorage.setItem('wc_session', JSON.stringify({name:n, email:e, pass:p}));
+        login(n, e, p);
     }
 
-    function start() { 
-        document.getElementById('login-ui').style.display="none"; 
-        document.getElementById('app-ui').style.display="block"; 
-        load(); 
+    function login(n, e, p) {
+        myName=n; myEmail=e; myPass=p;
+        document.getElementById('acc-btn').style.display="block";
+        showView('app-ui');
     }
 
-    function copyEmail() {
-        const email = document.getElementById('pay-email').innerText;
-        navigator.clipboard.writeText(email);
-        alert("Email copié !");
+    async function updateAccount() {
+        document.getElementById('acc-name').innerText = myName;
+        document.getElementById('acc-pass').innerText = myPass;
+        const { data } = await _sb.from('reservations').select('id').eq('client_email', myEmail);
+        document.getElementById('acc-count').innerText = data ? data.length : 0;
     }
 
-    function closePayment() {
-        document.getElementById('payment-ui').style.display = "none";
-        document.getElementById('app-ui').style.display = "block";
-        load();
+    function copyText(id) {
+        navigator.clipboard.writeText(document.getElementById(id).innerText);
+        alert("Copié !");
     }
 
     function forget() { localStorage.removeItem('wc_session'); location.reload(); }
@@ -173,14 +195,10 @@
             const { error } = await _sb.from('reservations').insert([{ 
                 client_name: myName, client_email: myEmail, password: myPass, date: dStr, time_slot: sel.time 
             }]);
-            
-            if (!error) {
-                document.getElementById('app-ui').style.display = "none";
-                document.getElementById('payment-ui').style.display = "block";
-            }
+            if (!error) showView('payment-ui');
         } else {
             await _sb.from('reservations').delete().eq('id', sel.id);
-            alert("Séance annulée.");
+            alert("Annulé.");
             load();
         }
         btn.style.display = "none";
